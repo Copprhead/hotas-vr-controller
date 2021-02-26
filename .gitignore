@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+/HotasVRControllerDriver/hotas/adddriver.bat
+/HotasVRControllerDriver/hotas/removedriver.bat
+/.vs
+/HotasVRControllerDriver/hotas/bin/win64/driver_hotas.pdb
+/HotasVRControllerDriver/hotas/bin/win64/driver_hotas.log
+/HotasVRControllerDriver/hotas/bin/win64/driver_hotas.ilk
+/HotasVRControllerDriver/hotas/bin/win64/driver_hotas.exp
+/HotasVRControllerDriver/x64/Debug
+/HotasVRControllerDriver/HotasVRControllerDriver.vcxproj.user
+/HotasVRControllerDriver/HotasVRControllerDriver.vcxproj.filters
