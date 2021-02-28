@@ -49,11 +49,13 @@ private:
 
 	DeviceTransform transforms[vr::k_unMaxTrackedDeviceCount];
 
-	vr::VRInputComponentHandle_t* handleTrigger = nullptr;
-	vr::VRInputComponentHandle_t* handleGrip = nullptr;
+	vr::VRInputComponentHandle_t* handleTriggerLeft = nullptr;
+	vr::VRInputComponentHandle_t* handleGripLeft = nullptr;
+	vr::VRInputComponentHandle_t* handleTriggerRight = nullptr;
+	vr::VRInputComponentHandle_t* handleGripRight = nullptr;
 
-	bool m_leftTrigger = false;
-	bool m_leftGrip = false;
-	bool m_rightTrigger = false;
-	bool m_rightGrip = false;
+	bool triggerLeft = false;
+	bool gripLeft = false;
+	bool triggerRight = false;
+	bool gripRight = false;
 };

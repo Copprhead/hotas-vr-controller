@@ -31,49 +31,90 @@ void ServerTrackedDeviceProvider::Cleanup()
 
 void ServerTrackedDeviceProvider::RunFrame()
 {
-	if (handleTrigger != nullptr && handleGrip != nullptr)
+	if (handleTriggerLeft != nullptr && handleGripLeft != nullptr)
+	{
+		if (((0x8000 & GetAsyncKeyState(0x48)) != 0)) // H
+		{
+			gripLeft = true;
+		}
+		if (((0x8000 & GetAsyncKeyState(0x5A)) != 0)) // Z
+		{
+			gripLeft = false;
+		}
+
+		if (((0x8000 & GetAsyncKeyState(0x4A)) != 0)) // J
+		{
+			gripLeft = true;
+			triggerLeft = true;
+		}
+		if (((0x8000 & GetAsyncKeyState(0x55)) != 0)) // U
+		{
+			triggerLeft = false;
+			gripLeft = false;
+		}
+
+
+		if (triggerLeft)
+		{
+			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerLeft, (float)1.00, 0);
+		}
+		else
+		{
+			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerLeft, 0.0, 0);
+		}
+
+		if (gripLeft)
+		{
+			vr::VRDriverInput()->UpdateScalarComponent(*handleGripLeft, 1, 0);
+		}
+		else
+		{
+			vr::VRDriverInput()->UpdateScalarComponent(*handleGripLeft, 0, 0);
+		}
+	}
+	
+	if (handleTriggerRight != nullptr && handleGripRight != nullptr)
 	{
 		if (((0x8000 & GetAsyncKeyState(0x4B)) != 0)) // K
 		{
-			m_rightGrip = true;
-			m_rightTrigger = true;
+			gripRight = true;
+			triggerRight = true;
 		}
 		if (((0x8000 & GetAsyncKeyState(0x49)) != 0)) // I
 		{
-			m_rightTrigger = false;
-			m_rightGrip = false;
+			triggerRight = false;
+			gripRight = false;
 		}
 
 		if (((0x8000 & GetAsyncKeyState(0x4C)) != 0)) // L
 		{
-			m_rightGrip = true;
+			gripRight = true;
 		}
 		if (((0x8000 & GetAsyncKeyState(0x4F)) != 0)) // O
 		{
-			m_rightGrip = false;
+			gripRight = false;
 		}
 
-
-		if (m_rightTrigger)
+		if (triggerRight)
 		{
-			TRACE("ServerTrackedDeviceProvider::TriggerPressed");
-			vr::VRDriverInput()->UpdateScalarComponent(*handleTrigger, (float)1.00, 0);
+			TRACE("ServerTrackedDeviceProvider::TriggerRightPressed");
+			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerRight, (float)1.00, 0);
 		}
 		else
 		{
-			TRACE("ServerTrackedDeviceProvider::TriggerReleased");
-			vr::VRDriverInput()->UpdateScalarComponent(*handleTrigger, 0.0, 0);
+			TRACE("ServerTrackedDeviceProvider::TriggerRightReleased");
+			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerRight, 0.0, 0);
 		}
 
-		if (m_rightGrip)
+		if (gripRight)
 		{
-			TRACE("ServerTrackedDeviceProvider::GripPressed");
-			vr::VRDriverInput()->UpdateScalarComponent(*handleGrip, (float)1.00, 0);
+			TRACE("ServerTrackedDeviceProvider::GripRightPressed");
+			vr::VRDriverInput()->UpdateScalarComponent(*handleGripRight, (float)1.00, 0);
 		}
 		else
 		{
-			TRACE("ServerTrackedDeviceProvider::GripReleased");
-			vr::VRDriverInput()->UpdateScalarComponent(*handleGrip, 0.0, 0);
+			TRACE("ServerTrackedDeviceProvider::GripRightReleased");
+			vr::VRDriverInput()->UpdateScalarComponent(*handleGripRight, 0.0, 0);
 		}
 	}
 }
@@ -95,44 +136,99 @@ inline vr::HmdVector3d_t quaternionRotateVector(const vr::HmdQuaternion_t& quat,
 	return { rotatedVectorQuat.x, rotatedVectorQuat.y, rotatedVectorQuat.z };
 }
 
+vr::HmdQuaternion_t create_from_axis_angle(const double& xx, const double& yy, const double& zz, const double& a)
+{
+	vr::HmdQuaternion_t result;
+
+	// Here we calculate the sin( theta / 2) once for optimization
+	double factor = sin(a / 2.0);
+
+	// Calculate the x, y and z of the quaternion
+	double x = xx * factor;
+	double y = yy * factor;
+	double z = zz * factor;
+
+	// Calcualte the w value by cos( theta / 2 )
+	double w = cos(a / 2.0);
+
+	result.w = w;
+	result.x = x;
+	result.y = y;
+	result.z = z;
+
+	return result;
+}
+
+vr::HmdQuaternion_t QuatMultiply(const vr::HmdQuaternion_t* q1, const vr::HmdQuaternion_t* q2)
+{
+	vr::HmdQuaternion_t result;
+	result.x = q1->w * q2->x + q1->x * q2->w + q1->y * q2->z - q1->z * q2->y;
+	result.y = q1->w * q2->y - q1->x * q2->z + q1->y * q2->w + q1->z * q2->x;
+	result.z = q1->w * q2->z + q1->x * q2->y - q1->y * q2->x + q1->z * q2->w;
+	result.w = q1->w * q2->w - q1->x * q2->x - q1->y * q2->y - q1->z * q2->z;
+	return result;
+}
+
 bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr::DriverPose_t &pose)
 {	
 	auto props = vr::VRProperties()->TrackedDeviceToPropertyContainer(openVRID);
 	std::int32_t role = vr::VRProperties()->GetInt32Property(props, vr::ETrackedDeviceProperty::Prop_ControllerRoleHint_Int32);
 
-	bool m_leftTrigger = false;
-	bool m_leftGrip = false;
-	bool m_rightTrigger = false;
-	bool m_rightGrip = false;
+	auto rotation = pose.qRotation;
 
-	auto& tf = transforms[openVRID];
+	double baseOffset[3];
+	baseOffset[0] = 0;
+	baseOffset[1] = 0;
+	baseOffset[2] = 0;
+
+	double r_x = 0;
+	double r_y = 0;
+	double r_z = 0;
+
 	if (role == vr::ETrackedControllerRole::TrackedControllerRole_LeftHand)
 	{
-		tf.enabled = true;
- 
-		tf.translation.v[0] = (float)-0.10;
-		tf.translation.v[1] = (float)-0.075;
-		tf.translation.v[2] = (float)0.05;
+		baseOffset[0] = (float)-0.10;
+		baseOffset[1] = (float)-0.075;
+		baseOffset[2] = (float)0.05;
+
+		r_x = -0.25;
+		r_y = 0.5;
+		r_z = -0.9;
 	}
-	else if (role == vr::ETrackedControllerRole::TrackedControllerRole_RightHand)
+	if (role == vr::ETrackedControllerRole::TrackedControllerRole_RightHand)
 	{
-		tf.enabled = true;
+		baseOffset[0] = (float)-0.10;
+		baseOffset[1] = (float)-0.075;
+		baseOffset[2] = (float)0.075;
 
-		tf.translation.v[0] = (float)-0.10;
-		tf.translation.v[1] = (float)-0.075;
-		tf.translation.v[2] = (float)0.075;
+		r_x = -0.25;
+		r_y = 0.5;
+		r_z = -0.9;
 	}
 
-	if (tf.enabled)
+	if (baseOffset[0] != 0 && baseOffset[1] != 0 && baseOffset[2] != 0)
 	{
-		// disable rotation until tf has an actual value for the rotation
-		//pose.qWorldFromDriverRotation = tf.rotation * pose.qWorldFromDriverRotation;
+		auto offset = quaternionRotateVector(rotation, baseOffset);
 
-		vr::HmdVector3d_t rotatedTranslation = quaternionRotateVector(tf.rotation, pose.vecWorldFromDriverTranslation);
-		pose.vecWorldFromDriverTranslation[0] = rotatedTranslation.v[0] + tf.translation.v[0];
-		pose.vecWorldFromDriverTranslation[1] = rotatedTranslation.v[1] + tf.translation.v[1];
-		pose.vecWorldFromDriverTranslation[2] = rotatedTranslation.v[2] + tf.translation.v[2];
+		pose.vecPosition[0] = pose.vecPosition[0] + offset.v[0];
+		pose.vecPosition[1] = pose.vecPosition[1] + offset.v[1];
+		pose.vecPosition[2] = pose.vecPosition[2] + offset.v[2];
 	}
+
+	if (r_x != 0 && r_y != 0 && r_z != 0)
+	{
+
+		auto rotate_x = create_from_axis_angle(1, 0, 0, r_x * 3.13 / 2);
+		auto rotate_y = create_from_axis_angle(0, 1, 0, r_y * 3.13 / 2);
+		auto rotate_z = create_from_axis_angle(0, 0, 1, r_z * 3.13 / 2);
+
+		rotation = QuatMultiply(&rotation, &rotate_x);
+		rotation = QuatMultiply(&rotation, &rotate_y);
+		rotation = QuatMultiply(&rotation, &rotate_z);
+
+		pose.qRotation = rotation;
+	}
+
 	return true;
 }
 
@@ -152,15 +248,33 @@ void ServerTrackedDeviceProvider::HandleCreateScalarComponent(vr::PropertyContai
 {
 	TRACE("ServerTrackedDeviceProvider::HandleCreateScalarComponent(%s)", pchName);
 
-	std::string componentName(pchName);
-	if (componentName == "/input/grip/value")
+	std::int32_t role = vr::VRProperties()->GetInt32Property(ulContainer, vr::ETrackedDeviceProperty::Prop_ControllerRoleHint_Int32);
+	if (role == vr::ETrackedControllerRole::TrackedControllerRole_LeftHand)
 	{
-		TRACE("ServerTrackedDeviceProvider::handleGrip assigned");
-		handleGrip = pHandle;
+		std::string componentName(pchName);
+		if (componentName == "/input/grip/value")
+		{
+			TRACE("ServerTrackedDeviceProvider::handleGripLeft assigned");
+			handleGripLeft = pHandle;
+		}
+		else if (componentName == "/input/trigger/value")
+		{
+			TRACE("ServerTrackedDeviceProvider::handleTriggerLeft assigned");
+			handleTriggerLeft = pHandle;
+		}
 	}
-	else if (componentName == "/input/trigger/value")
+	else if (role == vr::ETrackedControllerRole::TrackedControllerRole_RightHand)
 	{
-		TRACE("ServerTrackedDeviceProvider::handleTrigger assigned");
-		handleTrigger = pHandle;
+		std::string componentName(pchName);
+		if (componentName == "/input/grip/value")
+		{
+			TRACE("ServerTrackedDeviceProvider::handleGripRight assigned");
+			handleGripRight = pHandle;
+		}
+		else if (componentName == "/input/trigger/value")
+		{
+			TRACE("ServerTrackedDeviceProvider::handleTriggerRight assigned");
+			handleTriggerRight = pHandle;
+		}
 	}
 }
