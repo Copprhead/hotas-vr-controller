@@ -2,6 +2,11 @@
 #include "Logging.h"
 #include "InterfaceHookInjector.h"
 
+#if defined( _WINDOWS )
+#include <windows.h>
+#endif
+
+
 vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriverContext)
 {
 	TRACE("ServerTrackedDeviceProvider::Init()");
@@ -11,6 +16,9 @@ vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriver
 
 	InjectHooks(this, pDriverContext);
 
+
+	auto driverInput = vr::VRDriverInput();
+	
 	return vr::VRInitError_None;
 }
 
@@ -20,6 +28,56 @@ void ServerTrackedDeviceProvider::Cleanup()
 	DisableHooks();
 	VR_CLEANUP_SERVER_DRIVER_CONTEXT();
 }
+
+void ServerTrackedDeviceProvider::RunFrame()
+{
+	if (handleTrigger != nullptr && handleGrip != nullptr)
+	{
+		if (((0x8000 & GetAsyncKeyState(0x4B)) != 0)) // K
+		{
+			m_rightGrip = true;
+			m_rightTrigger = true;
+		}
+		if (((0x8000 & GetAsyncKeyState(0x49)) != 0)) // I
+		{
+			m_rightTrigger = false;
+			m_rightGrip = false;
+		}
+
+		if (((0x8000 & GetAsyncKeyState(0x4C)) != 0)) // L
+		{
+			m_rightGrip = true;
+		}
+		if (((0x8000 & GetAsyncKeyState(0x4F)) != 0)) // O
+		{
+			m_rightGrip = false;
+		}
+
+
+		if (m_rightTrigger)
+		{
+			TRACE("ServerTrackedDeviceProvider::TriggerPressed");
+			vr::VRDriverInput()->UpdateScalarComponent(*handleTrigger, (float)1.00, 0);
+		}
+		else
+		{
+			TRACE("ServerTrackedDeviceProvider::TriggerReleased");
+			vr::VRDriverInput()->UpdateScalarComponent(*handleTrigger, 0.0, 0);
+		}
+
+		if (m_rightGrip)
+		{
+			TRACE("ServerTrackedDeviceProvider::GripPressed");
+			vr::VRDriverInput()->UpdateScalarComponent(*handleGrip, (float)1.00, 0);
+		}
+		else
+		{
+			TRACE("ServerTrackedDeviceProvider::GripReleased");
+			vr::VRDriverInput()->UpdateScalarComponent(*handleGrip, 0.0, 0);
+		}
+	}
+}
+
 
 inline vr::HmdQuaternion_t operator*(const vr::HmdQuaternion_t &lhs, const vr::HmdQuaternion_t &rhs) {
 	return {
@@ -35,18 +93,6 @@ inline vr::HmdVector3d_t quaternionRotateVector(const vr::HmdQuaternion_t& quat,
 	vr::HmdQuaternion_t conjugate = { quat.w, -quat.x, -quat.y, -quat.z };
 	auto rotatedVectorQuat = quat * vectorQuat * conjugate;
 	return { rotatedVectorQuat.x, rotatedVectorQuat.y, rotatedVectorQuat.z };
-}
-
-void ServerTrackedDeviceProvider::SetDeviceTransform()
-{
-	/*auto &tf = transforms[newTransform.openVRID];
-	tf.enabled = newTransform.enabled;
-
-	if (newTransform.updateTranslation)
-		tf.translation = newTransform.translation;
-
-	if (newTransform.updateRotation)
-		tf.rotation = newTransform.rotation;*/
 }
 
 bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr::DriverPose_t &pose)
@@ -90,3 +136,31 @@ bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr:
 	return true;
 }
 
+bool ServerTrackedDeviceProvider::HandleTrackedDeviceAdded(const char* pchDeviceSerialNumber, vr::ETrackedDeviceClass eDeviceClass, vr::ITrackedDeviceServerDriver* pDriver)
+{
+	TRACE("ServerTrackedDeviceProvider::HandleTrackedDeviceAdded(%s)", pchDeviceSerialNumber);
+
+	return true;
+}
+
+void ServerTrackedDeviceProvider::HandleCreateBooleanComponent(vr::PropertyContainerHandle_t ulContainer, const char* pchName, vr::VRInputComponentHandle_t* pHandle)
+{
+	TRACE("ServerTrackedDeviceProvider::HandleCreateBooleanComponent(%s)", pchName);
+}
+
+void ServerTrackedDeviceProvider::HandleCreateScalarComponent(vr::PropertyContainerHandle_t ulContainer, const char* pchName, vr::VRInputComponentHandle_t* pHandle, vr::EVRScalarType eType, vr::EVRScalarUnits eUnits)
+{
+	TRACE("ServerTrackedDeviceProvider::HandleCreateScalarComponent(%s)", pchName);
+
+	std::string componentName(pchName);
+	if (componentName == "/input/grip/value")
+	{
+		TRACE("ServerTrackedDeviceProvider::handleGrip assigned");
+		handleGrip = pHandle;
+	}
+	else if (componentName == "/input/trigger/value")
+	{
+		TRACE("ServerTrackedDeviceProvider::handleTrigger assigned");
+		handleTrigger = pHandle;
+	}
+}

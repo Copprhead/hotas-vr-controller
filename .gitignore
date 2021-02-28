@@ -24,7 +24,7 @@
 *.lai
 *.la
 *.a
-*.lib
+#*.lib
 
 # Executables
 *.exe
@@ -40,3 +40,4 @@
 /HotasVRControllerDriver/x64/Debug
 /HotasVRControllerDriver/HotasVRControllerDriver.vcxproj.user
 /HotasVRControllerDriver/HotasVRControllerDriver.vcxproj.filters
+/HotasVRControllerDriver/hotas/bin/win64/driver_hotas.lib

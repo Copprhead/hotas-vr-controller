@@ -17,7 +17,7 @@ public:
 	virtual const char * const *GetInterfaceVersions() { return vr::k_InterfaceVersions; }
 
 	/** Allows the driver do to some work in the main loop of the server. */
-	virtual void RunFrame() { }
+	virtual void RunFrame() override;
 
 	/** Returns true if the driver wants to block Standby mode. */
 	virtual bool ShouldBlockStandbyMode() { return false; }
@@ -33,8 +33,11 @@ public:
 	////// End vr::IServerTrackedDeviceProvider functions
 
 	ServerTrackedDeviceProvider() { }
-	void SetDeviceTransform();
+
 	bool HandleDevicePoseUpdated(uint32_t openVRID, vr::DriverPose_t &pose);
+	bool HandleTrackedDeviceAdded(const char* pchDeviceSerialNumber, vr::ETrackedDeviceClass eDeviceClass, vr::ITrackedDeviceServerDriver* pDriver);
+	void HandleCreateBooleanComponent(vr::PropertyContainerHandle_t ulContainer, const char* pchName, vr::VRInputComponentHandle_t* pHandle);
+	void HandleCreateScalarComponent(vr::PropertyContainerHandle_t ulContainer, const char* pchName, vr::VRInputComponentHandle_t* pHandle, vr::EVRScalarType eType, vr::EVRScalarUnits eUnits);
 
 private:
 	struct DeviceTransform
@@ -45,4 +48,12 @@ private:
 	};
 
 	DeviceTransform transforms[vr::k_unMaxTrackedDeviceCount];
+
+	vr::VRInputComponentHandle_t* handleTrigger = nullptr;
+	vr::VRInputComponentHandle_t* handleGrip = nullptr;
+
+	bool m_leftTrigger = false;
+	bool m_leftGrip = false;
+	bool m_rightTrigger = false;
+	bool m_rightGrip = false;
 };
