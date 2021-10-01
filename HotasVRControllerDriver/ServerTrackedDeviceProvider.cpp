@@ -1,14 +1,99 @@
 #include "ServerTrackedDeviceProvider.h"
 #include "Logging.h"
 #include "InterfaceHookInjector.h"
+#include "inipp.h"
+#include "spsc_queue.h"
 
 #if defined( _WINDOWS )
 #include <windows.h>
 #endif
 
+bool gIsExiting = false;
+spsc_queue<int> gQueue;
+
+void InterceptionThreadFunction()
+{
+	InterceptionContext context;
+	InterceptionDevice device;
+	InterceptionStroke stroke;
+
+	context = interception_create_context();
+	interception_set_filter(context, interception_is_mouse, INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_DOWN | INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_UP | INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_DOWN | INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_UP);
+
+	while (!gIsExiting)
+	{
+		if (interception_receive(context, device = interception_wait(context), &stroke, 1) > 0)
+		{
+			if (interception_is_mouse(device))
+			{				
+				//TRACE("Device: %i", device - INTERCEPTION_MOUSE(0));
+
+				//wchar_t hardware_id[500];
+				//size_t length = interception_get_hardware_id(context, device, hardware_id, sizeof(hardware_id));
+
+				//if (length > 0 && length < sizeof(hardware_id))
+				//{
+				//	TRACE("hardware_id found: %S", hardware_id);
+				//}
+
+				InterceptionMouseStroke& mousestroke = *(InterceptionMouseStroke*)&stroke;
+				if (device - INTERCEPTION_MOUSE(0) == 1)
+				{
+					if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_DOWN)
+					{
+						gQueue.enqueue(LEFT_GRIP_DOWN);
+					}
+					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_UP)
+					{
+						gQueue.enqueue(LEFT_GRIP_UP);
+					}
+					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_DOWN)
+					{
+						gQueue.enqueue(LEFT_TRIGGER_DOWN);
+					}					
+					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_UP)
+					{
+						gQueue.enqueue(LEFT_TRIGGER_UP);
+					}
+				}
+				else if (device - INTERCEPTION_MOUSE(0) == 2)
+				{
+					if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_DOWN)
+					{
+						gQueue.enqueue(RIGHT_TRIGGER_DOWN);
+					}
+					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_UP)
+					{
+						gQueue.enqueue(RIGHT_TRIGGER_UP);
+					}
+					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_DOWN)
+					{
+						gQueue.enqueue(RIGHT_GRIP_DOWN);
+					}
+					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_UP)
+					{
+						gQueue.enqueue(RIGHT_GRIP_UP);
+					}
+				}
+				else
+				{
+					interception_send(context, device, &stroke, 1);
+				}
+			}
+			else
+			{
+				interception_send(context, device, &stroke, 1);
+			}
+		}
+	}
+
+	interception_destroy_context(context);
+}
+
+
 
 vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriverContext)
-{
+{	
 	TRACE("ServerTrackedDeviceProvider::Init()");
 	VR_INIT_SERVER_DRIVER_CONTEXT(pDriverContext);
 
@@ -16,105 +101,154 @@ vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriver
 
 	InjectHooks(this, pDriverContext);
 
-
 	auto driverInput = vr::VRDriverInput();
+
+	gIsExiting = false;
+	interceptionThread = new std::thread( InterceptionThreadFunction );
 	
 	return vr::VRInitError_None;
 }
 
 void ServerTrackedDeviceProvider::Cleanup()
 {
-	TRACE("ServerTrackedDeviceProvider::Cleanup()");
+	TRACE("ServerTrackedDeviceProvider::Cleanup()");	
+
+	gIsExiting = true;
+
 	DisableHooks();
 	VR_CLEANUP_SERVER_DRIVER_CONTEXT();
 }
 
+void ServerTrackedDeviceProvider::checkLeft()
+{
+	triggerLeft = false;
+	gripLeft = false;
+
+	//if (((0x8000 & GetAsyncKeyState(0x5A)) != 0)) // Z
+	//{
+	//	gripLeft = true;
+	//}
+	//if (((0x8000 & GetAsyncKeyState(0x55)) != 0)) // U
+	//{
+	//	triggerLeft = true;
+	//	gripLeft = true;
+	//}
+
+}
+
+void ServerTrackedDeviceProvider::checkRight()
+{
+	triggerRight = false;
+	gripRight = false;
+
+	//if (((0x8000 & GetAsyncKeyState(0x49)) != 0)) // I
+	//{
+	//	gripRight = true;
+	//	triggerRight = true;
+	//}
+	//if (((0x8000 & GetAsyncKeyState(0x4F)) != 0)) // O
+	//{
+	//	gripRight = true;
+	//}
+
+}
+
+
 void ServerTrackedDeviceProvider::RunFrame()
 {
-	if (handleTriggerLeft != nullptr && handleGripLeft != nullptr)
-	{
-		if (((0x8000 & GetAsyncKeyState(0x48)) != 0)) // H
-		{
-			gripLeft = true;
-		}
-		if (((0x8000 & GetAsyncKeyState(0x5A)) != 0)) // Z
-		{
-			gripLeft = false;
-		}
+	//checkLeft();
+	//checkRight();
 
-		if (((0x8000 & GetAsyncKeyState(0x4A)) != 0)) // J
+	int state = -1;
+	if (gQueue.dequeue(state))
+	{
+		if (state == LEFT_GRIP_DOWN)
 		{
 			gripLeft = true;
-			triggerLeft = true;
+			TRACE("LEFT_GRIP_DOWN");
 		}
-		if (((0x8000 & GetAsyncKeyState(0x55)) != 0)) // U
+		else if (state == LEFT_GRIP_UP)
+		{
+			gripLeft = false; 
+			TRACE("LEFT_GRIP_UP");
+		}
+		else if (state == LEFT_TRIGGER_DOWN)
+		{
+			triggerLeft = true;
+			gripLeft = true;
+			TRACE("LEFT_TRIGGER_DOWN");
+		}
+		else if (state == LEFT_TRIGGER_UP)
 		{
 			triggerLeft = false;
 			gripLeft = false;
+			TRACE("LEFT_TRIGGER_UP");
 		}
 
 
+		else if (state == RIGHT_GRIP_DOWN)
+		{
+			gripRight = true;
+			TRACE("RIGHT_GRIP_DOWN");
+		}
+		else if (state == RIGHT_GRIP_UP)
+		{
+			gripRight = false;
+			TRACE("RIGHT_GRIP_UP");
+		}
+		else if (state == RIGHT_TRIGGER_DOWN)
+		{
+			triggerRight = true;
+			gripRight = true;
+			TRACE("RIGHT_TRIGGER_DOWN");
+		}
+		else if (state == RIGHT_TRIGGER_UP)
+		{
+			triggerRight = false;
+			gripRight = false;
+			TRACE("RIGHT_TRIGGER_UP");
+		}
+	}
+		
+	if (handleTriggerLeft != nullptr && handleGripLeft != nullptr)
+	{
 		if (triggerLeft)
 		{
 			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerLeft, (float)1.00, 0);
 		}
 		else
 		{
-			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerLeft, 0.0, 0);
+			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerLeft, (float)0.0, 0);
 		}
 
 		if (gripLeft)
 		{
-			vr::VRDriverInput()->UpdateScalarComponent(*handleGripLeft, 1, 0);
+			vr::VRDriverInput()->UpdateScalarComponent(*handleGripLeft, (float)1.0, 0);
 		}
 		else
 		{
-			vr::VRDriverInput()->UpdateScalarComponent(*handleGripLeft, 0, 0);
+			vr::VRDriverInput()->UpdateScalarComponent(*handleGripLeft, (float)0.0, 0);
 		}
 	}
 	
 	if (handleTriggerRight != nullptr && handleGripRight != nullptr)
-	{
-		if (((0x8000 & GetAsyncKeyState(0x4B)) != 0)) // K
-		{
-			gripRight = true;
-			triggerRight = true;
-		}
-		if (((0x8000 & GetAsyncKeyState(0x49)) != 0)) // I
-		{
-			triggerRight = false;
-			gripRight = false;
-		}
-
-		if (((0x8000 & GetAsyncKeyState(0x4C)) != 0)) // L
-		{
-			gripRight = true;
-		}
-		if (((0x8000 & GetAsyncKeyState(0x4F)) != 0)) // O
-		{
-			gripRight = false;
-		}
-
+	{	
 		if (triggerRight)
 		{
-			TRACE("ServerTrackedDeviceProvider::TriggerRightPressed");
-			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerRight, (float)1.00, 0);
+			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerRight, (float)1.0, 0);
 		}
 		else
 		{
-			TRACE("ServerTrackedDeviceProvider::TriggerRightReleased");
-			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerRight, 0.0, 0);
+			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerRight, (float)0.0, 0);
 		}
 
 		if (gripRight)
 		{
-			TRACE("ServerTrackedDeviceProvider::GripRightPressed");
-			vr::VRDriverInput()->UpdateScalarComponent(*handleGripRight, (float)1.00, 0);
+			vr::VRDriverInput()->UpdateScalarComponent(*handleGripRight, (float)1.0, 0);
 		}
 		else
 		{
-			TRACE("ServerTrackedDeviceProvider::GripRightReleased");
-			vr::VRDriverInput()->UpdateScalarComponent(*handleGripRight, 0.0, 0);
+			vr::VRDriverInput()->UpdateScalarComponent(*handleGripRight, (float)0.0, 0);
 		}
 	}
 }
@@ -184,6 +318,9 @@ bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr:
 	double r_x = 0;
 	double r_y = 0;
 	double r_z = 0;
+	
+	bool hasOffset = false;
+	bool hasRotation = false;
 
 	if (role == vr::ETrackedControllerRole::TrackedControllerRole_LeftHand)
 	{
@@ -194,6 +331,9 @@ bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr:
 		r_x = -0.25;
 		r_y = 0.5;
 		r_z = -0.9;
+
+		hasOffset = true;
+		hasRotation = true;
 	}
 	if (role == vr::ETrackedControllerRole::TrackedControllerRole_RightHand)
 	{
@@ -204,9 +344,12 @@ bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr:
 		r_x = -0.25;
 		r_y = 0.5;
 		r_z = -0.9;
-	}
 
-	if (baseOffset[0] != 0 && baseOffset[1] != 0 && baseOffset[2] != 0)
+		hasOffset = true;
+		hasRotation = true;
+	}	
+
+	if (hasOffset == true)
 	{
 		auto offset = quaternionRotateVector(rotation, baseOffset);
 
@@ -215,11 +358,10 @@ bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr:
 		pose.vecPosition[2] = pose.vecPosition[2] + offset.v[2];
 	}
 
-	if (r_x != 0 && r_y != 0 && r_z != 0)
+	if (hasRotation == true)
 	{
-
 		auto rotate_x = create_from_axis_angle(1, 0, 0, r_x * 3.13 / 2);
-		auto rotate_y = create_from_axis_angle(0, 1, 0, r_y * 3.13 / 2);
+		auto rotate_y = create_from_axis_angle(0, 1, 0, r_y * 3.13 / 2);		
 		auto rotate_z = create_from_axis_angle(0, 0, 1, r_z * 3.13 / 2);
 
 		rotation = QuatMultiply(&rotation, &rotate_x);

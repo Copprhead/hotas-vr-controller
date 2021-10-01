@@ -1,6 +1,21 @@
 #pragma once
 
 #include <openvr_driver.h>
+#include <interception.h>
+#include <thread>
+
+enum ControllerState
+{
+	LEFT_TRIGGER_DOWN,
+	LEFT_TRIGGER_UP,
+	LEFT_GRIP_DOWN,
+	LEFT_GRIP_UP,
+	RIGHT_TRIGGER_DOWN,
+	RIGHT_TRIGGER_UP,
+	RIGHT_GRIP_DOWN,
+	RIGHT_GRIP_UP,
+};
+
 
 class ServerTrackedDeviceProvider : public vr::IServerTrackedDeviceProvider
 {
@@ -58,4 +73,12 @@ private:
 	bool gripLeft = false;
 	bool triggerRight = false;
 	bool gripRight = false;
+
+
+	void checkLeft();
+	void checkRight();
+
+	std::thread* interceptionThread;
+	
+	void interceptionThreadFunction();
 };
