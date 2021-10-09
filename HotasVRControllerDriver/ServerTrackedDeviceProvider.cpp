@@ -3,6 +3,9 @@
 #include "InterfaceHookInjector.h"
 #include "inipp.h"
 #include "spsc_queue.h"
+#include <fstream>
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 #if defined( _WINDOWS )
 #include <windows.h>
@@ -95,6 +98,44 @@ void InterceptionThreadFunction()
 vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriverContext)
 {	
 	TRACE("ServerTrackedDeviceProvider::Init()");
+
+	// get dll path
+	wchar_t path[MAX_PATH];
+	HMODULE hm = NULL;
+	if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&InterceptionThreadFunction, &hm) == 0)
+	{
+		int ret = GetLastError();
+		TRACE("GetModuleHandle failed, error = %d\n", ret);
+		// Return or however you want to handle an error.
+	}
+	if (GetModuleFileName(hm, path, sizeof(path)) == 0)
+	{
+		int ret = GetLastError();
+		TRACE("GetModuleFileName failed, error = %d\n", ret);
+		// Return or however you want to handle an error.
+	}
+		
+	TRACE("Path: %S", path);
+
+	std::wstring filename(path);
+	std::wstring directory;
+	const size_t last_slash_idx = filename.rfind('\\');
+	if (std::string::npos != last_slash_idx)
+	{
+		directory = filename.substr(0, last_slash_idx);
+	}
+
+	inipp::Ini<char> ini;
+	std::ifstream is(directory + std::wstring(L"\\driver_hotas.ini"));
+	ini.parse(is);
+
+
+	double x;
+	inipp::get_value(ini.sections["LeftControllerOffset"], "x", x);
+	TRACE(" x: %f", x);
+
+
+
 	VR_INIT_SERVER_DRIVER_CONTEXT(pDriverContext);
 
 	memset(transforms, 0, vr::k_unMaxTrackedDeviceCount * sizeof DeviceTransform);
@@ -293,6 +334,17 @@ vr::HmdQuaternion_t create_from_axis_angle(const double& xx, const double& yy, c
 	return result;
 }
 
+void to_axis_angle(vr::HmdQuaternion_t q, double& yaw , double& pitch, double& roll)
+{
+	yaw = atan2(2.0 * (q.y * q.z + q.w * q.x), q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z);
+	pitch = asin(-2.0 * (q.x * q.z - q.w * q.y));
+	roll = atan2(2.0 * (q.x * q.y + q.w * q.z), q.w * q.w + q.x * q.x - q.y * q.y - q.z * q.z);
+
+	yaw = (yaw * 180.0) / M_PI;
+	pitch = (pitch * 180.0) / M_PI;
+	roll = (roll * 180.0) / M_PI;
+}
+
 vr::HmdQuaternion_t QuatMultiply(const vr::HmdQuaternion_t* q1, const vr::HmdQuaternion_t* q2)
 {
 	vr::HmdQuaternion_t result;
@@ -328,9 +380,9 @@ bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr:
 		baseOffset[1] = (float)-0.075;
 		baseOffset[2] = (float)0.05;
 
-		r_x = -0.25;
-		r_y = 0.5;
-		r_z = -0.9;
+		r_x = -0.25 * 90;
+		r_y = 0.5 * 90;
+		r_z = -0.9 * 90;
 
 		hasOffset = true;
 		hasRotation = true;
@@ -341,16 +393,32 @@ bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr:
 		baseOffset[1] = (float)-0.075;
 		baseOffset[2] = (float)0.075;
 
-		r_x = -0.25;
-		r_y = 0.5;
-		r_z = -0.9;
+		r_x = -0.25 * 90;
+		r_y = 0.5 * 90;
+		r_z = -0.9 * 90;
 
 		hasOffset = true;
 		hasRotation = true;
 	}	
+	//else
+	//{
+	//	// should be HMD
+	//	double yaw;
+	//	double pitch;
+	//	double roll;
+
+	//	//pose.qRotation.y = 0;
+	//	
+	//	to_axis_angle(pose.qRotation, yaw, pitch, roll);
+	//	TRACE("Yaw: %f | Pitch: %f | Roll: %f", yaw, pitch, roll);
+	//	//if (yaw > 90 || yaw < -90)
+	//	//{
+	//	//	TRACE("Safe Neck!!!");
+	//	//}
+	//}
 
 	if (hasOffset == true)
-	{
+	{		
 		auto offset = quaternionRotateVector(rotation, baseOffset);
 
 		pose.vecPosition[0] = pose.vecPosition[0] + offset.v[0];
@@ -360,9 +428,9 @@ bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr:
 
 	if (hasRotation == true)
 	{
-		auto rotate_x = create_from_axis_angle(1, 0, 0, r_x * 3.13 / 2);
-		auto rotate_y = create_from_axis_angle(0, 1, 0, r_y * 3.13 / 2);		
-		auto rotate_z = create_from_axis_angle(0, 0, 1, r_z * 3.13 / 2);
+		auto rotate_x = create_from_axis_angle(1, 0, 0, (r_x * M_PI) / 180);
+		auto rotate_y = create_from_axis_angle(0, 1, 0, (r_y * M_PI) / 180);
+		auto rotate_z = create_from_axis_angle(0, 0, 1, (r_z * M_PI) / 180);
 
 		rotation = QuatMultiply(&rotation, &rotate_x);
 		rotation = QuatMultiply(&rotation, &rotate_y);

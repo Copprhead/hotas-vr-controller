@@ -3,6 +3,7 @@
 #include <openvr_driver.h>
 #include <interception.h>
 #include <thread>
+#include "ControllerOffset.h"
 
 enum ControllerState
 {
@@ -74,6 +75,8 @@ private:
 	bool triggerRight = false;
 	bool gripRight = false;
 
+	ControllerOffset* leftControllerOffset = nullptr;
+	ControllerOffset* rightControllerOffset = nullptr;
 
 	void checkLeft();
 	void checkRight();
