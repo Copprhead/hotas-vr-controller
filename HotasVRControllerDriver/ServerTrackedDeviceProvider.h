@@ -56,15 +56,6 @@ public:
 	void HandleCreateScalarComponent(vr::PropertyContainerHandle_t ulContainer, const char* pchName, vr::VRInputComponentHandle_t* pHandle, vr::EVRScalarType eType, vr::EVRScalarUnits eUnits);
 
 private:
-	struct DeviceTransform
-	{
-		bool enabled = false;
-		vr::HmdVector3d_t translation;
-		vr::HmdQuaternion_t rotation;
-	};
-
-	DeviceTransform transforms[vr::k_unMaxTrackedDeviceCount];
-
 	vr::VRInputComponentHandle_t* handleTriggerLeft = nullptr;
 	vr::VRInputComponentHandle_t* handleGripLeft = nullptr;
 	vr::VRInputComponentHandle_t* handleTriggerRight = nullptr;
@@ -75,13 +66,11 @@ private:
 	bool triggerRight = false;
 	bool gripRight = false;
 
-	ControllerOffset* leftControllerOffset = nullptr;
-	ControllerOffset* rightControllerOffset = nullptr;
+	ControllerOffset leftControllerOffset;
+	ControllerOffset rightControllerOffset;
 
-	void checkLeft();
-	void checkRight();
+	void loadConfig(std::wstring configPath);
+	std::wstring configPath = L"";
 
-	std::thread* interceptionThread;
-	
-	void interceptionThreadFunction();
+	std::thread* interceptionThread = nullptr;	
 };

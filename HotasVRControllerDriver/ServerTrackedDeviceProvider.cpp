@@ -14,6 +14,8 @@
 bool gIsExiting = false;
 spsc_queue<int> gQueue;
 
+unsigned long gFrames = 0;
+
 void InterceptionThreadFunction()
 {
 	InterceptionContext context;
@@ -93,7 +95,26 @@ void InterceptionThreadFunction()
 	interception_destroy_context(context);
 }
 
+void ServerTrackedDeviceProvider::loadConfig(std::wstring configPath)
+{
+	inipp::Ini<char> ini;
+	std::ifstream is(configPath);
+	ini.parse(is);
 
+	inipp::get_value(ini.sections["LeftControllerOffset"], "x", leftControllerOffset.x);
+	inipp::get_value(ini.sections["LeftControllerOffset"], "y", leftControllerOffset.y);
+	inipp::get_value(ini.sections["LeftControllerOffset"], "z", leftControllerOffset.z);
+	inipp::get_value(ini.sections["LeftControllerOffset"], "rx", leftControllerOffset.rx);
+	inipp::get_value(ini.sections["LeftControllerOffset"], "ry", leftControllerOffset.ry);
+	inipp::get_value(ini.sections["LeftControllerOffset"], "rz", leftControllerOffset.rz);
+
+	inipp::get_value(ini.sections["RightControllerOffset"], "x", rightControllerOffset.x);
+	inipp::get_value(ini.sections["RightControllerOffset"], "y", rightControllerOffset.y);
+	inipp::get_value(ini.sections["RightControllerOffset"], "z", rightControllerOffset.z);
+	inipp::get_value(ini.sections["RightControllerOffset"], "rx", rightControllerOffset.rx);
+	inipp::get_value(ini.sections["RightControllerOffset"], "ry", rightControllerOffset.ry);
+	inipp::get_value(ini.sections["RightControllerOffset"], "rz", rightControllerOffset.rz);	
+}
 
 vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriverContext)
 {	
@@ -125,21 +146,16 @@ vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriver
 		directory = filename.substr(0, last_slash_idx);
 	}
 
-	inipp::Ini<char> ini;
-	std::ifstream is(directory + std::wstring(L"\\driver_hotas.ini"));
-	ini.parse(is);
+	configPath = directory + std::wstring(L"\\driver_hotas.ini");
+	loadConfig(configPath);
+	
 
-
-	double x;
-	inipp::get_value(ini.sections["LeftControllerOffset"], "x", x);
-	TRACE(" x: %f", x);
 
 
 
 	VR_INIT_SERVER_DRIVER_CONTEXT(pDriverContext);
 
-	memset(transforms, 0, vr::k_unMaxTrackedDeviceCount * sizeof DeviceTransform);
-
+	
 	InjectHooks(this, pDriverContext);
 
 	auto driverInput = vr::VRDriverInput();
@@ -160,45 +176,14 @@ void ServerTrackedDeviceProvider::Cleanup()
 	VR_CLEANUP_SERVER_DRIVER_CONTEXT();
 }
 
-void ServerTrackedDeviceProvider::checkLeft()
-{
-	triggerLeft = false;
-	gripLeft = false;
-
-	//if (((0x8000 & GetAsyncKeyState(0x5A)) != 0)) // Z
-	//{
-	//	gripLeft = true;
-	//}
-	//if (((0x8000 & GetAsyncKeyState(0x55)) != 0)) // U
-	//{
-	//	triggerLeft = true;
-	//	gripLeft = true;
-	//}
-
-}
-
-void ServerTrackedDeviceProvider::checkRight()
-{
-	triggerRight = false;
-	gripRight = false;
-
-	//if (((0x8000 & GetAsyncKeyState(0x49)) != 0)) // I
-	//{
-	//	gripRight = true;
-	//	triggerRight = true;
-	//}
-	//if (((0x8000 & GetAsyncKeyState(0x4F)) != 0)) // O
-	//{
-	//	gripRight = true;
-	//}
-
-}
-
-
 void ServerTrackedDeviceProvider::RunFrame()
-{
-	//checkLeft();
-	//checkRight();
+{	
+	++gFrames;
+	if (gFrames >= 500)
+	{
+		gFrames = 0;
+		loadConfig(configPath);
+	}
 
 	int state = -1;
 	if (gQueue.dequeue(state))
@@ -206,48 +191,40 @@ void ServerTrackedDeviceProvider::RunFrame()
 		if (state == LEFT_GRIP_DOWN)
 		{
 			gripLeft = true;
-			TRACE("LEFT_GRIP_DOWN");
 		}
 		else if (state == LEFT_GRIP_UP)
 		{
 			gripLeft = false; 
-			TRACE("LEFT_GRIP_UP");
 		}
 		else if (state == LEFT_TRIGGER_DOWN)
 		{
 			triggerLeft = true;
 			gripLeft = true;
-			TRACE("LEFT_TRIGGER_DOWN");
 		}
 		else if (state == LEFT_TRIGGER_UP)
 		{
 			triggerLeft = false;
 			gripLeft = false;
-			TRACE("LEFT_TRIGGER_UP");
 		}
 
 
 		else if (state == RIGHT_GRIP_DOWN)
 		{
 			gripRight = true;
-			TRACE("RIGHT_GRIP_DOWN");
 		}
 		else if (state == RIGHT_GRIP_UP)
 		{
 			gripRight = false;
-			TRACE("RIGHT_GRIP_UP");
 		}
 		else if (state == RIGHT_TRIGGER_DOWN)
 		{
 			triggerRight = true;
 			gripRight = true;
-			TRACE("RIGHT_TRIGGER_DOWN");
 		}
 		else if (state == RIGHT_TRIGGER_UP)
 		{
 			triggerRight = false;
 			gripRight = false;
-			TRACE("RIGHT_TRIGGER_UP");
 		}
 	}
 		
@@ -366,61 +343,41 @@ bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr:
 	baseOffset[0] = 0;
 	baseOffset[1] = 0;
 	baseOffset[2] = 0;
-
-	double r_x = 0;
-	double r_y = 0;
-	double r_z = 0;
+	double rx = 0;
+	double ry = 0;
+	double rz = 0;
 	
 	bool hasOffset = false;
 	bool hasRotation = false;
 
 	if (role == vr::ETrackedControllerRole::TrackedControllerRole_LeftHand)
 	{
-		baseOffset[0] = (float)-0.10;
-		baseOffset[1] = (float)-0.075;
-		baseOffset[2] = (float)0.05;
-
-		r_x = -0.25 * 90;
-		r_y = 0.5 * 90;
-		r_z = -0.9 * 90;
+		baseOffset[0] = leftControllerOffset.x;
+		baseOffset[1] = leftControllerOffset.y;
+		baseOffset[2] = leftControllerOffset.z;
+		rx = leftControllerOffset.rx;
+		ry = leftControllerOffset.ry;
+		rz = leftControllerOffset.rz;
 
 		hasOffset = true;
 		hasRotation = true;
 	}
 	if (role == vr::ETrackedControllerRole::TrackedControllerRole_RightHand)
 	{
-		baseOffset[0] = (float)-0.10;
-		baseOffset[1] = (float)-0.075;
-		baseOffset[2] = (float)0.075;
-
-		r_x = -0.25 * 90;
-		r_y = 0.5 * 90;
-		r_z = -0.9 * 90;
+		baseOffset[0] = rightControllerOffset.x;
+		baseOffset[1] = rightControllerOffset.y;
+		baseOffset[2] = rightControllerOffset.z;
+		rx = rightControllerOffset.rx;
+		ry = rightControllerOffset.ry;
+		rz = rightControllerOffset.rz;
 
 		hasOffset = true;
 		hasRotation = true;
 	}	
-	//else
-	//{
-	//	// should be HMD
-	//	double yaw;
-	//	double pitch;
-	//	double roll;
-
-	//	//pose.qRotation.y = 0;
-	//	
-	//	to_axis_angle(pose.qRotation, yaw, pitch, roll);
-	//	TRACE("Yaw: %f | Pitch: %f | Roll: %f", yaw, pitch, roll);
-	//	//if (yaw > 90 || yaw < -90)
-	//	//{
-	//	//	TRACE("Safe Neck!!!");
-	//	//}
-	//}
 
 	if (hasOffset == true)
 	{		
 		auto offset = quaternionRotateVector(rotation, baseOffset);
-
 		pose.vecPosition[0] = pose.vecPosition[0] + offset.v[0];
 		pose.vecPosition[1] = pose.vecPosition[1] + offset.v[1];
 		pose.vecPosition[2] = pose.vecPosition[2] + offset.v[2];
@@ -428,10 +385,9 @@ bool ServerTrackedDeviceProvider::HandleDevicePoseUpdated(uint32_t openVRID, vr:
 
 	if (hasRotation == true)
 	{
-		auto rotate_x = create_from_axis_angle(1, 0, 0, (r_x * M_PI) / 180);
-		auto rotate_y = create_from_axis_angle(0, 1, 0, (r_y * M_PI) / 180);
-		auto rotate_z = create_from_axis_angle(0, 0, 1, (r_z * M_PI) / 180);
-
+		auto rotate_x = create_from_axis_angle(1, 0, 0, (rx * M_PI) / 180);
+		auto rotate_y = create_from_axis_angle(0, 1, 0, (ry * M_PI) / 180);
+		auto rotate_z = create_from_axis_angle(0, 0, 1, (rz * M_PI) / 180);
 		rotation = QuatMultiply(&rotation, &rotate_x);
 		rotation = QuatMultiply(&rotation, &rotate_y);
 		rotation = QuatMultiply(&rotation, &rotate_z);

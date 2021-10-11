@@ -2,13 +2,11 @@
 class ControllerOffset
 {
 public:
-	double x;
-	double y;
-	double z;
-	double rx;
-	double ry;
-	double rz;
-
-	ControllerOffset(double x, double y, double z, double rx, double ry, double rz);
+	double x = 0.0;
+	double y = 0.0;
+	double z = 0.0;
+	double rx = 0.0;
+	double ry = 0.0;
+	double rz = 0.0;
 };
 
