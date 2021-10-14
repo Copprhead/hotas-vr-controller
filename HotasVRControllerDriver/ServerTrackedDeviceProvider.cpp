@@ -18,8 +18,8 @@ unsigned long gFrames = 0;
 
 unsigned int leftDeviceIndex = 0;
 unsigned int rightDeviceIndex = 0;
-std::wstring leftDeviceHardware = L"HID\\VID_0250&PID_3412&REV_1001";
-std::wstring rightDeviceHardware = L"HID\\VID_0250&PID_3412&REV_1001";
+std::wstring leftDeviceHardware = L""; // L"HID\\VID_0250&PID_3412&REV_1001";
+std::wstring rightDeviceHardware = L""; // L"HID\\VID_0250&PID_3412&REV_1001";
 
 std::map<InterceptionDevice, DeviceType> gDeviceMapping;
 
@@ -87,7 +87,7 @@ void InterceptionThreadFunction()
 							if (result == true)
 							{
 								// There is already a left device. So this must be the right device.
-								gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;
+								gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;								
 							}
 							else
 							{
@@ -115,19 +115,30 @@ void InterceptionThreadFunction()
 					else if (wcscmp(hardware_id, leftDeviceHardware.c_str()) == 0)
 					{
 						gDeviceMapping[device] = DeviceType::LEFT_DEVICE;
-						TRACE("Left: %i", device);
 					}
 					else if (wcscmp(hardware_id, rightDeviceHardware.c_str()) == 0)
 					{
 						gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;
-						TRACE("Right: %i", device);
 					}
 					else
 					{
 						// add device to ignore list
 						gDeviceMapping[device] = DeviceType::IGNORE_DEVICE;
-						TRACE("Ignore: %i", device);
-					}					
+					}
+
+					DeviceType type = gDeviceMapping[device];
+					if (type == DeviceType::LEFT_DEVICE)
+					{
+						TRACE("Device %i is LEFT_DEVICE", device);
+					}
+					else if(type == DeviceType::RIGHT_DEVICE)
+					{
+						TRACE("Device %i is RIGHT_DEVICE", device);
+					}
+					else if (type == DeviceType::IGNORE_DEVICE)
+					{
+						TRACE("Device %i is ignored", device);
+					}
 				}
 				
 				InterceptionMouseStroke& mousestroke = *(InterceptionMouseStroke*)&stroke;
@@ -251,6 +262,10 @@ vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriver
 	inipp::get_value(ini.sections["LeftDevice"], "hardware", leftTemp);
 	inipp::get_value(ini.sections["RightDevice"], "index", rightDeviceIndex);	
 	inipp::get_value(ini.sections["RightDevice"], "hardware", rightTemp);
+
+	// it's safe as the ini file only contains ascii
+	leftDeviceHardware = std::wstring(leftTemp.begin(), leftTemp.end());
+	rightDeviceHardware = std::wstring(rightTemp.begin(), rightTemp.end());
 
 	// Load controller offset
 	loadConfig(configPath);
