@@ -5,18 +5,26 @@
 #include <thread>
 #include "ControllerOffset.h"
 
-enum ControllerState
+enum class ControllerState
 {
-	LEFT_TRIGGER_DOWN,
-	LEFT_TRIGGER_UP,
-	LEFT_GRIP_DOWN,
-	LEFT_GRIP_UP,
-	RIGHT_TRIGGER_DOWN,
-	RIGHT_TRIGGER_UP,
-	RIGHT_GRIP_DOWN,
-	RIGHT_GRIP_UP,
+	UKNOWN = 0,
+	LEFT_TRIGGER_DOWN = 1,
+	LEFT_TRIGGER_UP = 2,
+	LEFT_GRIP_DOWN = 3,
+	LEFT_GRIP_UP = 4,
+
+	RIGHT_TRIGGER_DOWN = 5,
+	RIGHT_TRIGGER_UP = 6,
+	RIGHT_GRIP_DOWN = 7,
+	RIGHT_GRIP_UP = 8,
 };
 
+enum class DeviceType
+{
+	IGNORE_DEVICE = 0,
+	RIGHT_DEVICE = 1,
+	LEFT_DEVICE = 2,	
+};
 
 class ServerTrackedDeviceProvider : public vr::IServerTrackedDeviceProvider
 {

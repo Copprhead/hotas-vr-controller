@@ -12,9 +12,39 @@
 #endif
 
 bool gIsExiting = false;
-spsc_queue<int> gQueue;
+spsc_queue<ControllerState> gQueue;
 
 unsigned long gFrames = 0;
+
+unsigned int leftDeviceIndex = 0;
+unsigned int rightDeviceIndex = 0;
+std::wstring leftDeviceHardware = L"HID\\VID_0250&PID_3412&REV_1001";
+std::wstring rightDeviceHardware = L"HID\\VID_0250&PID_3412&REV_1001";
+
+std::map<InterceptionDevice, DeviceType> gDeviceMapping;
+
+
+template<typename K, typename V>
+bool findByValue(std::vector<K>& vec, std::map<K, V> mapOfElemen, V value)
+{
+	bool bResult = false;
+	auto it = mapOfElemen.begin();
+	// Iterate through the map
+	while (it != mapOfElemen.end())
+	{
+		// Check if value of this entry matches with given value
+		if (it->second == value)
+		{
+			// Yes found
+			bResult = true;
+			// Push the key in given map
+			vec.push_back(it->first);
+		}
+		// Go to next entry in map
+		it++;
+	}
+	return bResult;
+}
 
 void InterceptionThreadFunction()
 {
@@ -30,54 +60,115 @@ void InterceptionThreadFunction()
 		if (interception_receive(context, device = interception_wait(context), &stroke, 1) > 0)
 		{
 			if (interception_is_mouse(device))
-			{				
-				//TRACE("Device: %i", device - INTERCEPTION_MOUSE(0));
-
-				//wchar_t hardware_id[500];
-				//size_t length = interception_get_hardware_id(context, device, hardware_id, sizeof(hardware_id));
-
-				//if (length > 0 && length < sizeof(hardware_id))
-				//{
-				//	TRACE("hardware_id found: %S", hardware_id);
-				//}
-
+			{		
+				// Check if the current device was already detected.
+				if (gDeviceMapping.count(device) == 0)
+				{
+					// Check hardware id.
+					wchar_t hardware_id[500];
+					size_t length = interception_get_hardware_id(context, device, hardware_id, sizeof(hardware_id));
+					if (length > 0 && length < sizeof(hardware_id))
+					{
+						TRACE("DeviceId: %i HardwareId: %S", device, hardware_id);
+					}
+					else
+					{
+						TRACE("DeviceId: %i HardwareId: Unknown", device);
+					}
+					
+					if ((wcscmp(leftDeviceHardware.c_str(), rightDeviceHardware.c_str()) == 0) && (wcscmp(hardware_id, leftDeviceHardware.c_str()) == 0 || wcscmp(hardware_id, rightDeviceHardware.c_str()) == 0))
+					{
+						// same device type for both sides. compare device index
+						if (leftDeviceIndex < rightDeviceIndex)
+						{
+							// left device comes first.
+							std::vector<InterceptionDevice> vec;
+							bool result = findByValue(vec, gDeviceMapping, DeviceType::LEFT_DEVICE);
+							if (result == true)
+							{
+								// There is already a left device. So this must be the right device.
+								gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;
+							}
+							else
+							{
+								// There is no left device yet. So this must be the left device.
+								gDeviceMapping[device] = DeviceType::LEFT_DEVICE;
+							}
+						}
+						else
+						{
+							// right device comes first.							
+							std::vector<InterceptionDevice> vec;
+							bool result = findByValue(vec, gDeviceMapping, DeviceType::RIGHT_DEVICE);
+							if (result == true)
+							{
+								// There is already a right device. So this must be the left device.
+								gDeviceMapping[device] = DeviceType::LEFT_DEVICE;
+							}
+							else
+							{
+								// There is no right device yet. So this must be the left device.
+								gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;
+							}
+						}
+					}
+					else if (wcscmp(hardware_id, leftDeviceHardware.c_str()) == 0)
+					{
+						gDeviceMapping[device] = DeviceType::LEFT_DEVICE;
+						TRACE("Left: %i", device);
+					}
+					else if (wcscmp(hardware_id, rightDeviceHardware.c_str()) == 0)
+					{
+						gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;
+						TRACE("Right: %i", device);
+					}
+					else
+					{
+						// add device to ignore list
+						gDeviceMapping[device] = DeviceType::IGNORE_DEVICE;
+						TRACE("Ignore: %i", device);
+					}					
+				}
+				
 				InterceptionMouseStroke& mousestroke = *(InterceptionMouseStroke*)&stroke;
-				if (device - INTERCEPTION_MOUSE(0) == 1)
+
+				DeviceType type = gDeviceMapping[device];
+				if(type == DeviceType::LEFT_DEVICE)
 				{
 					if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_DOWN)
 					{
-						gQueue.enqueue(LEFT_GRIP_DOWN);
+						gQueue.enqueue(ControllerState::LEFT_GRIP_DOWN);
 					}
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_UP)
 					{
-						gQueue.enqueue(LEFT_GRIP_UP);
+						gQueue.enqueue(ControllerState::LEFT_GRIP_UP);
 					}
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_DOWN)
 					{
-						gQueue.enqueue(LEFT_TRIGGER_DOWN);
+						gQueue.enqueue(ControllerState::LEFT_TRIGGER_DOWN);
 					}					
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_UP)
 					{
-						gQueue.enqueue(LEFT_TRIGGER_UP);
+						gQueue.enqueue(ControllerState::LEFT_TRIGGER_UP);
 					}
 				}
-				else if (device - INTERCEPTION_MOUSE(0) == 2)
+				else if (type == DeviceType::RIGHT_DEVICE)
 				{
 					if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_DOWN)
 					{
-						gQueue.enqueue(RIGHT_TRIGGER_DOWN);
+						gQueue.enqueue(ControllerState::RIGHT_TRIGGER_DOWN);
 					}
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_UP)
 					{
-						gQueue.enqueue(RIGHT_TRIGGER_UP);
+						gQueue.enqueue(ControllerState::RIGHT_TRIGGER_UP);
 					}
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_DOWN)
 					{
-						gQueue.enqueue(RIGHT_GRIP_DOWN);
+						gQueue.enqueue(ControllerState::RIGHT_GRIP_DOWN);
 					}
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_UP)
 					{
-						gQueue.enqueue(RIGHT_GRIP_UP);
+						gQueue.enqueue(ControllerState::RIGHT_GRIP_UP);
 					}
 				}
 				else
@@ -113,7 +204,7 @@ void ServerTrackedDeviceProvider::loadConfig(std::wstring configPath)
 	inipp::get_value(ini.sections["RightControllerOffset"], "z", rightControllerOffset.z);
 	inipp::get_value(ini.sections["RightControllerOffset"], "rx", rightControllerOffset.rx);
 	inipp::get_value(ini.sections["RightControllerOffset"], "ry", rightControllerOffset.ry);
-	inipp::get_value(ini.sections["RightControllerOffset"], "rz", rightControllerOffset.rz);	
+	inipp::get_value(ini.sections["RightControllerOffset"], "rz", rightControllerOffset.rz);
 }
 
 vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriverContext)
@@ -147,14 +238,24 @@ vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriver
 	}
 
 	configPath = directory + std::wstring(L"\\driver_hotas.ini");
+
+	// Load device hardware and index
+	inipp::Ini<char> ini;
+	std::ifstream is(configPath);
+	ini.parse(is);
+
+	std::string leftTemp = "";
+	std::string rightTemp = "";
+
+	inipp::get_value(ini.sections["LeftDevice"], "index", leftDeviceIndex);
+	inipp::get_value(ini.sections["LeftDevice"], "hardware", leftTemp);
+	inipp::get_value(ini.sections["RightDevice"], "index", rightDeviceIndex);	
+	inipp::get_value(ini.sections["RightDevice"], "hardware", rightTemp);
+
+	// Load controller offset
 	loadConfig(configPath);
 	
-
-
-
-
 	VR_INIT_SERVER_DRIVER_CONTEXT(pDriverContext);
-
 	
 	InjectHooks(this, pDriverContext);
 
@@ -185,43 +286,43 @@ void ServerTrackedDeviceProvider::RunFrame()
 		loadConfig(configPath);
 	}
 
-	int state = -1;
+	ControllerState state;
 	if (gQueue.dequeue(state))
 	{
-		if (state == LEFT_GRIP_DOWN)
+		if (state == ControllerState::LEFT_GRIP_DOWN)
 		{
 			gripLeft = true;
 		}
-		else if (state == LEFT_GRIP_UP)
+		else if (state == ControllerState::LEFT_GRIP_UP)
 		{
 			gripLeft = false; 
 		}
-		else if (state == LEFT_TRIGGER_DOWN)
+		else if (state == ControllerState::LEFT_TRIGGER_DOWN)
 		{
 			triggerLeft = true;
 			gripLeft = true;
 		}
-		else if (state == LEFT_TRIGGER_UP)
+		else if (state == ControllerState::LEFT_TRIGGER_UP)
 		{
 			triggerLeft = false;
 			gripLeft = false;
 		}
 
 
-		else if (state == RIGHT_GRIP_DOWN)
+		else if (state == ControllerState::RIGHT_GRIP_DOWN)
 		{
 			gripRight = true;
 		}
-		else if (state == RIGHT_GRIP_UP)
+		else if (state == ControllerState::RIGHT_GRIP_UP)
 		{
 			gripRight = false;
 		}
-		else if (state == RIGHT_TRIGGER_DOWN)
+		else if (state == ControllerState::RIGHT_TRIGGER_DOWN)
 		{
 			triggerRight = true;
 			gripRight = true;
 		}
-		else if (state == RIGHT_TRIGGER_UP)
+		else if (state == ControllerState::RIGHT_TRIGGER_UP)
 		{
 			triggerRight = false;
 			gripRight = false;
