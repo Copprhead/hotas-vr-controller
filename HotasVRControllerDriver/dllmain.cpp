@@ -10,10 +10,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	{
 	case DLL_PROCESS_ATTACH:
 		OpenLogFile();
-		LOG("HotasVRControllerDriver loaded");
+		TRACE("HotasVRControllerDriver loaded");
 		break;
 	case DLL_PROCESS_DETACH:
-		LOG("HotasVRControllerDriver unloaded");
+		TRACE("HotasVRControllerDriver unloaded");
 		break;
 	case DLL_THREAD_ATTACH:
 	case DLL_THREAD_DETACH:

@@ -18,8 +18,8 @@ unsigned long gFrames = 0;
 
 unsigned int leftDeviceIndex = 0;
 unsigned int rightDeviceIndex = 0;
-std::wstring leftDeviceHardware = L""; // L"HID\\VID_0250&PID_3412&REV_1001";
-std::wstring rightDeviceHardware = L""; // L"HID\\VID_0250&PID_3412&REV_1001";
+std::wstring leftDeviceHardware = L"";
+std::wstring rightDeviceHardware = L"";
 
 std::map<InterceptionDevice, DeviceType> gDeviceMapping;
 
@@ -60,7 +60,7 @@ void InterceptionThreadFunction()
 		if (interception_receive(context, device = interception_wait(context), &stroke, 1) > 0)
 		{
 			if (interception_is_mouse(device))
-			{		
+			{	
 				// Check if the current device was already detected.
 				if (gDeviceMapping.count(device) == 0)
 				{
@@ -69,75 +69,65 @@ void InterceptionThreadFunction()
 					size_t length = interception_get_hardware_id(context, device, hardware_id, sizeof(hardware_id));
 					if (length > 0 && length < sizeof(hardware_id))
 					{
-						TRACE("DeviceId: %i HardwareId: %S", device, hardware_id);
-					}
-					else
-					{
-						TRACE("DeviceId: %i HardwareId: Unknown", device);
-					}
-					
-					if ((wcscmp(leftDeviceHardware.c_str(), rightDeviceHardware.c_str()) == 0) && (wcscmp(hardware_id, leftDeviceHardware.c_str()) == 0 || wcscmp(hardware_id, rightDeviceHardware.c_str()) == 0))
-					{
-						// same device type for both sides. compare device index
-						if (leftDeviceIndex < rightDeviceIndex)
+						if (wcscmp(hardware_id, leftDeviceHardware.c_str()) != 0 && wcscmp(hardware_id, rightDeviceHardware.c_str()) != 0)
 						{
-							// left device comes first.
-							std::vector<InterceptionDevice> vec;
-							bool result = findByValue(vec, gDeviceMapping, DeviceType::LEFT_DEVICE);
-							if (result == true)
+							// If device is not mapped, write the hardware id to the log file
+							LOG("Unmapped device: %i HardwareId: %S", device, hardware_id);
+						}
+						else if ((wcscmp(leftDeviceHardware.c_str(), rightDeviceHardware.c_str()) == 0) && (wcscmp(hardware_id, leftDeviceHardware.c_str()) == 0 || wcscmp(hardware_id, rightDeviceHardware.c_str()) == 0))
+						{
+							// same device type for both sides. compare device index
+							if (leftDeviceIndex < rightDeviceIndex)
 							{
-								// There is already a left device. So this must be the right device.
-								gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;								
+								// left device comes first.
+								std::vector<InterceptionDevice> vec;
+								bool result = findByValue(vec, gDeviceMapping, DeviceType::LEFT_DEVICE);
+								if (result == true)
+								{
+									// There is already a left device. So this must be the right device.
+									gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;								
+								}
+								else
+								{
+									// There is no left device yet. So this must be the left device.
+									gDeviceMapping[device] = DeviceType::LEFT_DEVICE;
+								}
 							}
 							else
 							{
-								// There is no left device yet. So this must be the left device.
-								gDeviceMapping[device] = DeviceType::LEFT_DEVICE;
+								// right device comes first.							
+								std::vector<InterceptionDevice> vec;
+								bool result = findByValue(vec, gDeviceMapping, DeviceType::RIGHT_DEVICE);
+								if (result == true)
+								{
+									// There is already a right device. So this must be the left device.
+									gDeviceMapping[device] = DeviceType::LEFT_DEVICE;
+								}
+								else
+								{
+									// There is no right device yet. So this must be the left device.
+									gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;
+								}
 							}
+						}
+						else if (wcscmp(hardware_id, leftDeviceHardware.c_str()) == 0)
+						{
+							gDeviceMapping[device] = DeviceType::LEFT_DEVICE;
+						}
+						else if (wcscmp(hardware_id, rightDeviceHardware.c_str()) == 0)
+						{
+							gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;
 						}
 						else
 						{
-							// right device comes first.							
-							std::vector<InterceptionDevice> vec;
-							bool result = findByValue(vec, gDeviceMapping, DeviceType::RIGHT_DEVICE);
-							if (result == true)
-							{
-								// There is already a right device. So this must be the left device.
-								gDeviceMapping[device] = DeviceType::LEFT_DEVICE;
-							}
-							else
-							{
-								// There is no right device yet. So this must be the left device.
-								gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;
-							}
+							// if device is not mapped to left or right controller, add it to ignore list
+							gDeviceMapping[device] = DeviceType::IGNORE_DEVICE;
 						}
-					}
-					else if (wcscmp(hardware_id, leftDeviceHardware.c_str()) == 0)
-					{
-						gDeviceMapping[device] = DeviceType::LEFT_DEVICE;
-					}
-					else if (wcscmp(hardware_id, rightDeviceHardware.c_str()) == 0)
-					{
-						gDeviceMapping[device] = DeviceType::RIGHT_DEVICE;
 					}
 					else
 					{
-						// add device to ignore list
+						// if there is no hardware_id, add device to ignore list
 						gDeviceMapping[device] = DeviceType::IGNORE_DEVICE;
-					}
-
-					DeviceType type = gDeviceMapping[device];
-					if (type == DeviceType::LEFT_DEVICE)
-					{
-						TRACE("Device %i is LEFT_DEVICE", device);
-					}
-					else if(type == DeviceType::RIGHT_DEVICE)
-					{
-						TRACE("Device %i is RIGHT_DEVICE", device);
-					}
-					else if (type == DeviceType::IGNORE_DEVICE)
-					{
-						TRACE("Device %i is ignored", device);
 					}
 				}
 				
@@ -267,7 +257,7 @@ vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriver
 	leftDeviceHardware = std::wstring(leftTemp.begin(), leftTemp.end());
 	rightDeviceHardware = std::wstring(rightTemp.begin(), rightTemp.end());
 
-	// Load controller offset
+	// Load controller offsets once during init. The config updated periodically to allow offset changes during runtime.
 	loadConfig(configPath);
 	
 	VR_INIT_SERVER_DRIVER_CONTEXT(pDriverContext);
@@ -293,10 +283,11 @@ void ServerTrackedDeviceProvider::Cleanup()
 }
 
 void ServerTrackedDeviceProvider::RunFrame()
-{	
+{		
 	++gFrames;
 	if (gFrames >= 500)
 	{
+		// Load the config every 500 frames, which is about every 10 sec
 		gFrames = 0;
 		loadConfig(configPath);
 	}
