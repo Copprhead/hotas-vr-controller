@@ -65,7 +65,7 @@ void InterceptionThreadFunction()
 				if (gDeviceMapping.count(device) == 0)
 				{
 					// Check hardware id.
-					wchar_t hardware_id[500];
+					wchar_t hardware_id[500] = { 0 };
 					size_t length = interception_get_hardware_id(context, device, hardware_id, sizeof(hardware_id));
 					if (length > 0 && length < sizeof(hardware_id))
 					{
@@ -223,7 +223,7 @@ vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriver
 	TRACE("ServerTrackedDeviceProvider::Init()");
 
 	// get dll path
-	wchar_t path[MAX_PATH];
+	wchar_t path[MAX_PATH] = { 0 };
 	HMODULE hm = NULL;
 	if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&InterceptionThreadFunction, &hm) == 0)
 	{
