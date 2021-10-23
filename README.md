@@ -24,9 +24,9 @@ This configuration enables a fluid transition of your hands between a physical j
 # Installation
 1. Download the latest hotas-vr-controller release package. 
 2. Unzip the release package in a folder of your choice. For example: `C:\abc\hotas-vr-controller`.
-3. Install the Interception driver. The command-line installer `install-interception.exe` of the driver is included in the release package. **IMPORTANT: Do not double-click it. The installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights.** To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then use the `cd` command to change to the directory of the installer and then execute `install-interception.exe /install`. For example:
+3. Install the Interception driver. The command-line installer `install-interception.exe` of the driver is included in `bin` folder of the release package. **IMPORTANT: Do not double-click it. The installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights.** To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then use the `cd` command to change to the directory of the installer and then execute `install-interception.exe /install`. For example:
 ```
-cd C:\abc\hotas-vr-controller\bin\win64
+cd C:\abc\hotas-vr-controller\bin
 install-interception.exe /install
 ```
 4. Register the OpenVR driver. SteamVR has the command line tool `vrpathreg.exe` for that. Open a command prompt (click the "Start" button and type in "Command Prompt"). The actual paths depend on where your Steam apps are installed. For example:
@@ -80,9 +80,9 @@ index=0
 "C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\vrpathreg.exe" removedriver "C:\abc\hotas-vr-controller\hotas"
 ```
 
-2. Uninstall the Interception driver. The command-line installer `install-interception.exe` of the driver is included in the release package. **IMPORTANT: Do not double-click it. The installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights.** To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then use the `cd` command to change to the directory of the installer and then execute `install-interception.exe /install`. For example:
+2. Uninstall the Interception driver. The command-line installer `install-interception.exe` of the driver is included in `bin` folder of the release package. **IMPORTANT: Do not double-click it. The installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights.** To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then use the `cd` command to change to the directory of the installer and then execute `install-interception.exe /install`. For example:
 ```
-cd C:\abc\hotas-vr-controller\bin\win64
+cd C:\abc\hotas-vr-controller\bin
 install-interception.exe /uninstall
 ```
 3. Delete the folder with the files from the release package. For example: `C:\abc\hotas-vr-controller`.
