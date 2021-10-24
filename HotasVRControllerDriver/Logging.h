@@ -17,7 +17,9 @@ void LogFlush();
 } while (0)
 #endif
 
+#ifndef _DEBUG
 #define TRACE(...) {}
+#endif
 
 #ifndef TRACE
 #define TRACE LOG

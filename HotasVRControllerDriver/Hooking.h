@@ -55,7 +55,7 @@ public:
 			return false;
 		}
 
-		LOG("Enabled hook for %s", name.c_str());
+		TRACE("Enabled hook for %s", name.c_str());
 		enabled = true;
 		return true;
 	}

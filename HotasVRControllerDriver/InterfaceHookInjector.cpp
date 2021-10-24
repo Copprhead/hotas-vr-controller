@@ -150,7 +150,7 @@ void InjectHooks(ServerTrackedDeviceProvider* driver, vr::IVRDriverContext* pDri
 	}
 	else
 	{
-		TRACE("MH_Initialize error: %s", MH_StatusToString(err));
+		LOG("MH_Initialize error: %s", MH_StatusToString(err));
 	}
 }
 

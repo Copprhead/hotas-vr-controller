@@ -218,14 +218,16 @@ vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriver
 	if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCWSTR)&InterceptionThreadFunction, &hm) == 0)
 	{
 		int ret = GetLastError();
-		TRACE("GetModuleHandle failed, error = %d\n", ret);
+		LOG("GetModuleHandle failed, error = %d\n", ret);
 		// Return or however you want to handle an error.
+		return vr::VRInitError_Init_NoConfigPath;
 	}
 	if (GetModuleFileName(hm, path, sizeof(path)) == 0)
 	{
 		int ret = GetLastError();
-		TRACE("GetModuleFileName failed, error = %d\n", ret);
+		LOG("GetModuleFileName failed, error = %d\n", ret);
 		// Return or however you want to handle an error.
+		return vr::VRInitError_Init_NoConfigPath;
 	}
 		
 	TRACE("Path: %S", path);
