@@ -23,25 +23,24 @@ This configuration enables a fluid transition of your hands between a physical j
 
 # Installation
 1. Download the latest hotas-vr-controller release package. 
-2. Unzip the release package in a folder of your choice. For example: `C:\abc\hotas-vr-controller`.
-3. Install the Interception driver. The command-line installer `install-interception.exe` of the driver is included in `bin` folder of the release package. 
-
-**:warning: Do not double-click it. The installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights.:warning:** 
-
-To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then use the `cd` command to change to the directory of the installer and then execute `install-interception.exe /install`. For example:
+2. Unzip the release package and copy the contained `hotas` folder into the `drivers` folder of SteamVR. By default this is: 
 ```
-cd C:\abc\hotas-vr-controller\bin
-install-interception.exe /install
+C:\Program Files (x86)\Steam\steamapps\common\SteamVR\drivers
 ```
-4. Register the OpenVR driver. SteamVR has the command line tool `vrpathreg.exe` for that. Open a command prompt (click the "Start" button and type in "Command Prompt"). The actual paths depend on where your Steam apps are installed. For example:
+3. Install the Interception driver. The command-line installer `install-interception.exe` of the driver is included in `bin` folder of the release package. Note that the installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights. To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then execute the installer with the `/install` option. For example:
 ```
-"C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\vrpathreg.exe" adddriver "C:\abc\hotas-vr-controller\hotas"
+C:\Program Files (x86)\Steam\steamapps\common\SteamVR\drivers\hotas\bin\install-interception.exe /install
 ```
-
-5. Run SteamVR and continue with the configuration.
+4. Run SteamVR and continue with the configuration.
 
 # Configuration
-hotas-vr-controller is configured via the `C:\abc\hotas-vr-controller\bin\win64\driver_hotas.ini` file:
+hotas-vr-controller is configured via the `driver_hotas.ini` file located in the `hotas\bin\win64` folder. For example:
+
+```
+C:\Program Files (x86)\Steam\steamapps\common\SteamVR\drivers\hotas\bin\win64\driver_hotas.ini
+```
+
+To edit the file, open it in a text editor (e.g. Notepad):
 
 ```
 [LeftControllerOffset]
@@ -71,25 +70,27 @@ index=0
 
 1. Strap the VR controllers to the outside of your hand or lower arm. Choose a position that allows you to grab your joystick and throttle.
 2. Modify the offset (x, y, z) and rotation (rx, ry, rz) values until the positions of the virtual hands match with the position of your actual hands. This can be done while SteamVR is running, the values are updated every 10 sec.
-3. Strack on the "Finger Mouse" devices. To determine the hardware id of your click device perform a left or right-click with every mouse device while SteamVR is running. The hardware id is written to the `C:\abc\hotas-vr-controller\bin\win64driver_hotas.log` file. For example:
+3. Strap on the "Finger Mouse" devices. To determine the hardware id of your click device perform a left or right-click with every mouse device while SteamVR is running. The hardware id is written to the `driver_hotas.log` file located in the `hotas\bin\win64` folder. For example:
+
+```
+C:\Program Files (x86)\Steam\steamapps\common\SteamVR\drivers\hotas\bin\win64\driver_hotas.log
+```
+
+Open the file within a text editor (e.g. Notepad), you should find entries like this:
 ```
 [hh:mm:ss] DeviceId: 14 HardwareId: HID\VID_046D&PID_C01E&REV_2200
 ```
-
-**:warning: Do not enter the hardware id of your regular mouse. All clicks will be intercepted and no longer reach any other application. If it still happens, use `ALT+TAB` to switch to SteamVR as the active application and use `ALT+F4` to close it.:warning:**
+Edit the hardware id of the left device or right device within the `driver_hotas.ini` file. Note: Never use the hardware id of your regular mouse. All mouse clicks will be intercepted and will no longer reach any application, making your mouse effectively useless while SteamVR is running. If this happens, use `ALT+TAB` to make SteamVR the active application and use `ALT+F4` to close it.
 
 4. Change the device index in case both devices have the same hardware id. The index defines which of the two devices will be detected first after SteamVR was started. So in the example above, do a left-click or right-click with the device of your right hand before you left-click or right-click with the device of your left hand.
 5. Restart SteamVR after changing the hardware id and the device index.
 
 # Uninstallation
-1. Deregister the Open VR driver. SteamVR has the command line tool `vrpathreg.exe` for that. Open a command prompt (click the "Start" button and type in "Command Prompt"). The actual paths depend on where your Steam apps are installed. For example:
+1. Uninstall the Interception driver. The command-line installer `install-interception.exe` of the driver is included in `bin` folder of the release package. Note that the installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights. To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then execute the installer with the `/uninstall` option. For example:
 ```
-"C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\vrpathreg.exe" removedriver "C:\abc\hotas-vr-controller\hotas"
+C:\Program Files (x86)\Steam\steamapps\common\SteamVR\drivers\hotas\bin\install-interception.exe /uninstall
 ```
-
-2. Uninstall the Interception driver. The command-line installer `install-interception.exe` of the driver is included in `bin` folder of the release package. **IMPORTANT: Do not double-click it. The installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights.** To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then use the `cd` command to change to the directory of the installer and then execute `install-interception.exe /install`. For example:
+3. Delete the `hotas` folder from the `drivers` folder of SteamVR. By default this is: 
 ```
-cd C:\abc\hotas-vr-controller\bin
-install-interception.exe /uninstall
+C:\Program Files (x86)\Steam\steamapps\common\SteamVR\drivers\hotas
 ```
-3. Delete the folder with the files from the release package. For example: `C:\abc\hotas-vr-controller`.
