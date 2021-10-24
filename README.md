@@ -24,7 +24,11 @@ This configuration enables a fluid transition of your hands between a physical j
 # Installation
 1. Download the latest hotas-vr-controller release package. 
 2. Unzip the release package in a folder of your choice. For example: `C:\abc\hotas-vr-controller`.
-3. Install the Interception driver. The command-line installer `install-interception.exe` of the driver is included in `bin` folder of the release package. **IMPORTANT: Do not double-click it. The installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights.** To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then use the `cd` command to change to the directory of the installer and then execute `install-interception.exe /install`. For example:
+3. Install the Interception driver. The command-line installer `install-interception.exe` of the driver is included in `bin` folder of the release package. 
+
+**:warning: Do not double-click it. The installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights.:warning:** 
+
+To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then use the `cd` command to change to the directory of the installer and then execute `install-interception.exe /install`. For example:
 ```
 cd C:\abc\hotas-vr-controller\bin
 install-interception.exe /install
@@ -71,8 +75,11 @@ index=0
 ```
 [hh:mm:ss] DeviceId: 14 HardwareId: HID\VID_046D&PID_C01E&REV_2200
 ```
-3. Change the device index in case both devices have the same hardware id. The index defines which of the two devices will be detected first after SteamVR was started. So in the example above, do a left-click or right-click with the device of your right hand before you left-click or right-click with the device of your left hand.
-4. Restart SteamVR after changing the hardware id and the device index.
+
+**:warning: Do not enter the hardware id of your regular mouse. All clicks will be intercepted and no longer reach any other application. If it still happens, use `ALT+TAB` to switch to SteamVR as the active application and use `ALT+F4` to close it.:warning:**
+
+4. Change the device index in case both devices have the same hardware id. The index defines which of the two devices will be detected first after SteamVR was started. So in the example above, do a left-click or right-click with the device of your right hand before you left-click or right-click with the device of your left hand.
+5. Restart SteamVR after changing the hardware id and the device index.
 
 # Uninstallation
 1. Deregister the Open VR driver. SteamVR has the command line tool `vrpathreg.exe` for that. Open a command prompt (click the "Start" button and type in "Command Prompt"). The actual paths depend on where your Steam apps are installed. For example:
