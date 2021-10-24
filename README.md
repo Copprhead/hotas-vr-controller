@@ -76,14 +76,14 @@ index=0
 C:\Program Files (x86)\Steam\steamapps\common\SteamVR\drivers\hotas\bin\win64\driver_hotas.log
 ```
 
-Open the file within a text editor (e.g. Notepad), you should find entries like this:
+4. Open the file within a text editor (e.g. Notepad), you should find entries like this:
 ```
 [hh:mm:ss] DeviceId: 14 HardwareId: HID\VID_046D&PID_C01E&REV_2200
 ```
-Edit the hardware id of the left device or right device within the `driver_hotas.ini` file. Note: Never use the hardware id of your regular mouse. All mouse clicks will be intercepted and will no longer reach any application, making your mouse effectively useless while SteamVR is running. If this happens, use `ALT+TAB` to make SteamVR the active application and use `ALT+F4` to close it.
+5. Edit the hardware id of the left device or right device within the `driver_hotas.ini` file. Note: Never use the hardware id of your regular mouse. All mouse clicks will be intercepted and will no longer reach any application, making your mouse effectively useless while SteamVR is running. If this happens, use `ALT+TAB` to make SteamVR the active application and use `ALT+F4` to close it.
 
-4. Change the device index in case both devices have the same hardware id. The index defines which of the two devices will be detected first after SteamVR was started. So in the example above, do a left-click or right-click with the device of your right hand before you left-click or right-click with the device of your left hand.
-5. Restart SteamVR after changing the hardware id and the device index.
+6. Change the device index in case both devices have the same hardware id. The index defines which of the two devices will be detected first after SteamVR was started. So in the example above, do a left-click or right-click with the device of your right hand before you left-click or right-click with the device of your left hand.
+7. Restart SteamVR after changing the hardware id and the device index to take effect. 
 
 # Uninstallation
 1. Uninstall the Interception driver. The command-line installer `install-interception.exe` of the driver is included in `bin` folder of the release package. Note that the installer must be run within a Windows Command Prompt (cmd.exe) with administrative rights. To do this, click the "Start" button and type in "Command Prompt". Right-click on the "Command Prompt" icon and select "Run as administrator". Then execute the installer with the `/uninstall` option. For example:
