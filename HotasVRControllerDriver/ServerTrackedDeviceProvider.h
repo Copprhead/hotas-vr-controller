@@ -17,6 +17,12 @@ enum class ControllerState
 	RIGHT_TRIGGER_UP = 6,
 	RIGHT_GRIP_DOWN = 7,
 	RIGHT_GRIP_UP = 8,
+
+	LEFT_WHEEL_UP = 9,
+	LEFT_WHEEL_DOWN = 10,
+
+	RIGHT_WHEEL_UP = 11,
+	RIGHT_WHEEL_DOWN = 12,
 };
 
 enum class DeviceType
@@ -69,10 +75,25 @@ private:
 	vr::VRInputComponentHandle_t* handleTriggerRight = nullptr;
 	vr::VRInputComponentHandle_t* handleGripRight = nullptr;
 
+	vr::VRInputComponentHandle_t* handleJoystickXLeft = nullptr;
+	vr::VRInputComponentHandle_t* handleJoystickYLeft = nullptr;
+	vr::VRInputComponentHandle_t* handleJoystickXRight = nullptr;
+	vr::VRInputComponentHandle_t* handleJoystickYRight = nullptr;
+
 	bool triggerLeft = false;
 	bool gripLeft = false;
 	bool triggerRight = false;
 	bool gripRight = false;
+
+	float JoystickXLeft = 0.0;
+	float JoystickYLeft = 0.0;
+	float JoystickXRight = 0.0;
+	float JoystickYRight = 0.0;
+
+	unsigned int rightWheelUpCounter = 0;
+	unsigned int rightWheelDownCounter = 0;
+	unsigned int leftWheelUpCounter = 0;
+	unsigned int leftWheelDownCounter = 0;
 
 	ControllerOffset leftControllerOffset;
 	ControllerOffset rightControllerOffset;

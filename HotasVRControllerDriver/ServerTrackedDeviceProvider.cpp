@@ -21,6 +21,10 @@ unsigned int rightDeviceIndex = 0;
 std::wstring leftDeviceHardware = L"";
 std::wstring rightDeviceHardware = L"";
 
+unsigned int wheelDuration = 20;
+float wheelExtension = (float)0.5;
+float wheelProgression = (float)0.1;
+
 std::map<InterceptionDevice, DeviceType> gDeviceMapping;
 
 
@@ -53,7 +57,7 @@ void InterceptionThreadFunction()
 	InterceptionStroke stroke;
 
 	context = interception_create_context();
-	interception_set_filter(context, interception_is_mouse, INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_DOWN | INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_UP | INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_DOWN | INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_UP);
+	interception_set_filter(context, interception_is_mouse, INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_DOWN | INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_UP | INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_DOWN | INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_UP | INTERCEPTION_FILTER_MOUSE_WHEEL );
 
 	while (!gIsExiting)
 	{
@@ -138,38 +142,64 @@ void InterceptionThreadFunction()
 				{
 					if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_DOWN)
 					{
-						gQueue.enqueue(ControllerState::LEFT_GRIP_DOWN);
+						gQueue.enqueue(ControllerState::LEFT_TRIGGER_DOWN);
 					}
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_UP)
 					{
-						gQueue.enqueue(ControllerState::LEFT_GRIP_UP);
+						gQueue.enqueue(ControllerState::LEFT_TRIGGER_UP);
 					}
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_DOWN)
 					{
-						gQueue.enqueue(ControllerState::LEFT_TRIGGER_DOWN);
+						gQueue.enqueue(ControllerState::LEFT_GRIP_DOWN);
+						
 					}					
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_UP)
 					{
-						gQueue.enqueue(ControllerState::LEFT_TRIGGER_UP);
+						gQueue.enqueue(ControllerState::LEFT_GRIP_UP);
+						
+					}
+					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_WHEEL)
+					{
+						if (mousestroke.rolling > 0)
+						{
+							gQueue.enqueue(ControllerState::LEFT_WHEEL_UP);
+						}
+						else if (mousestroke.rolling < 0)
+						{
+							gQueue.enqueue(ControllerState::LEFT_WHEEL_DOWN);
+						}
 					}
 				}
 				else if (type == DeviceType::RIGHT_DEVICE)
 				{
 					if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_DOWN)
 					{
-						gQueue.enqueue(ControllerState::RIGHT_TRIGGER_DOWN);
+						gQueue.enqueue(ControllerState::RIGHT_GRIP_DOWN);
 					}
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_LEFT_BUTTON_UP)
 					{
-						gQueue.enqueue(ControllerState::RIGHT_TRIGGER_UP);
+						gQueue.enqueue(ControllerState::RIGHT_GRIP_UP);
 					}
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_DOWN)
 					{
-						gQueue.enqueue(ControllerState::RIGHT_GRIP_DOWN);
+						gQueue.enqueue(ControllerState::RIGHT_TRIGGER_DOWN);
+						
 					}
 					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_RIGHT_BUTTON_UP)
 					{
-						gQueue.enqueue(ControllerState::RIGHT_GRIP_UP);
+						gQueue.enqueue(ControllerState::RIGHT_TRIGGER_UP);
+						
+					}
+					else if (mousestroke.state == INTERCEPTION_FILTER_MOUSE_WHEEL)
+					{
+						if (mousestroke.rolling > 0)
+						{
+							gQueue.enqueue(ControllerState::RIGHT_WHEEL_UP);
+						}
+						else if(mousestroke.rolling < 0)
+						{ 
+							gQueue.enqueue(ControllerState::RIGHT_WHEEL_DOWN);
+						}
 					}
 				}
 				else
@@ -206,6 +236,10 @@ void ServerTrackedDeviceProvider::loadConfig(std::wstring configPath)
 	inipp::get_value(ini.sections["RightControllerOffset"], "rx", rightControllerOffset.rx);
 	inipp::get_value(ini.sections["RightControllerOffset"], "ry", rightControllerOffset.ry);
 	inipp::get_value(ini.sections["RightControllerOffset"], "rz", rightControllerOffset.rz);
+
+	inipp::get_value(ini.sections["Settings"], "wheelDuration", wheelDuration);
+	inipp::get_value(ini.sections["Settings"], "wheelExtension", wheelExtension);
+	inipp::get_value(ini.sections["Settings"], "wheelProgression", wheelProgression);
 }
 
 vr::EVRInitError ServerTrackedDeviceProvider::Init(vr::IVRDriverContext *pDriverContext)
@@ -287,57 +321,195 @@ void ServerTrackedDeviceProvider::Cleanup()
 void ServerTrackedDeviceProvider::RunFrame()
 {		
 	++gFrames;
-	if (gFrames >= 500)
+	if (gFrames >= 600) 
 	{
-		// Load the config every 500 frames, which is about every 10 sec
+		// Load the config every 600 frames, which is about every 10 sec (in 60 HZ mode)
 		gFrames = 0;
 		loadConfig(configPath);
 	}
-
+	
 	ControllerState state;
 	if (gQueue.dequeue(state))
 	{
 		if (state == ControllerState::LEFT_GRIP_DOWN)
 		{
 			gripLeft = true;
+			JoystickYLeft = -1.0;
 		}
 		else if (state == ControllerState::LEFT_GRIP_UP)
 		{
-			gripLeft = false; 
+			gripLeft = false;
+			JoystickYLeft = 0.0;
 		}
 		else if (state == ControllerState::LEFT_TRIGGER_DOWN)
 		{
-			triggerLeft = true;
+			//triggerLeft = true;
 			gripLeft = true;
+			JoystickYLeft = 1.0;
 		}
 		else if (state == ControllerState::LEFT_TRIGGER_UP)
 		{
-			triggerLeft = false;
+			//triggerLeft = false;
 			gripLeft = false;
-		}
+			JoystickYLeft = 0.0;
+		}		
+		else if (state == ControllerState::LEFT_WHEEL_DOWN)
+		{
+			gripLeft = true;
+			if (JoystickXLeft == 0.0)
+			{
+				JoystickXLeft = 0.0 - wheelExtension;
+			}
+			else if(JoystickXLeft < 0.0)
+			{
+				JoystickXLeft -= wheelProgression;
+			}
 
+			if (JoystickXLeft < -1.0)
+			{
+				JoystickXLeft = -1.0;
+			}
+
+			leftWheelDownCounter = wheelDuration;
+		}
+		else if (state == ControllerState::LEFT_WHEEL_UP)
+		{
+			gripLeft = true;
+			if (JoystickXLeft == 0.0)
+			{
+				JoystickXLeft = 0.0 + wheelExtension;
+			}
+			else if (JoystickXLeft > 0.0)
+			{
+				JoystickXLeft += wheelProgression;
+			}
+
+			if (JoystickXLeft > 1.0)
+			{
+				JoystickXLeft = 1.0;
+			}
+
+			leftWheelUpCounter = wheelDuration;
+		}
 
 		else if (state == ControllerState::RIGHT_GRIP_DOWN)
 		{
 			gripRight = true;
+			JoystickYRight = -1.0;
 		}
 		else if (state == ControllerState::RIGHT_GRIP_UP)
 		{
 			gripRight = false;
+			JoystickYRight = 0.0;
 		}
 		else if (state == ControllerState::RIGHT_TRIGGER_DOWN)
 		{
-			triggerRight = true;
+			//triggerRight = true;
 			gripRight = true;
+			JoystickYRight = 1.0;
 		}
 		else if (state == ControllerState::RIGHT_TRIGGER_UP)
 		{
-			triggerRight = false;
+			//triggerRight = false;
 			gripRight = false;
+			JoystickYRight = 0.0;
+		}
+		else if (state == ControllerState::RIGHT_WHEEL_DOWN)
+		{
+			gripRight = true;
+			if (JoystickXRight == 0.0)
+			{
+				JoystickXRight = 0.0 - wheelExtension;
+			}
+			else if (JoystickXRight < 0.0)
+			{
+				JoystickXRight -= wheelProgression;
+			}
+
+			if (JoystickXRight < -1.0)
+			{
+				JoystickXRight = -1.0;
+			}
+			rightWheelDownCounter = wheelDuration;			
+		}
+		else if (state == ControllerState::RIGHT_WHEEL_UP)
+		{
+			gripRight = true;			
+			if (JoystickXRight == 0.0)
+			{
+				JoystickXRight = 0.0 + wheelExtension;
+			}
+			else if (JoystickXRight > 0.0)
+			{
+				JoystickXRight += wheelProgression;
+			}
+
+			if (JoystickXRight > 1.0)
+			{
+				JoystickXRight = 1.0;
+			}
+			rightWheelUpCounter = wheelDuration;
 		}
 	}
+
+	if (rightWheelUpCounter > 0 && rightWheelDownCounter == 0)
+	{
+		--rightWheelUpCounter;
+		if (rightWheelUpCounter == 0)
+		{
+			// if counter is at 0, release the grip and reset joystick
+			gripRight = false;
+			JoystickXRight = 0.0;
+		}
+	}
+	else if (rightWheelDownCounter > 0 && rightWheelUpCounter == 0)
+	{
+		--rightWheelDownCounter;		
+		if (rightWheelDownCounter == 0)
+		{
+			// if counter is at 0, release the grip and reset joystick
+			gripRight = false;
+			JoystickXRight = 0.0;
+		}
+	}
+	else
+	{
+		// this is also used to abort the scrolling rolling is revered.
+		rightWheelDownCounter = 0;
+		rightWheelUpCounter = 0;
+		JoystickXRight = 0.0;		
+	}
+
+
+	if (leftWheelUpCounter > 0 && leftWheelDownCounter == 0)
+	{
+		--leftWheelUpCounter;
+		if (leftWheelUpCounter == 0)
+		{
+			// if counter is at 0, release the grip and reset joystick
+			gripLeft = false;
+			JoystickXLeft = 0.0;
+		}		
+	}
+	else if (leftWheelDownCounter > 0 && leftWheelUpCounter == 0)
+	{
+		--leftWheelDownCounter;
+		if (leftWheelDownCounter == 0)
+		{
+			// if counter is at 0, release the grip and reset joystick
+			gripLeft = false;
+			JoystickXLeft = 0.0;
+		}		
+	}
+	else
+	{
+		// this is also used to abort the scrolling rolling is revered.
+		leftWheelDownCounter = 0;
+		leftWheelUpCounter = 0;
+		JoystickXLeft = 0.0;		
+	}
 		
-	if (handleTriggerLeft != nullptr && handleGripLeft != nullptr)
+	if (handleTriggerLeft != nullptr && handleGripLeft != nullptr && handleJoystickXLeft != nullptr && handleJoystickYLeft != nullptr)
 	{
 		if (triggerLeft)
 		{
@@ -347,7 +519,7 @@ void ServerTrackedDeviceProvider::RunFrame()
 		{
 			vr::VRDriverInput()->UpdateScalarComponent(*handleTriggerLeft, (float)0.0, 0);
 		}
-
+		
 		if (gripLeft)
 		{
 			vr::VRDriverInput()->UpdateScalarComponent(*handleGripLeft, (float)1.0, 0);
@@ -356,9 +528,12 @@ void ServerTrackedDeviceProvider::RunFrame()
 		{
 			vr::VRDriverInput()->UpdateScalarComponent(*handleGripLeft, (float)0.0, 0);
 		}
+
+		vr::VRDriverInput()->UpdateScalarComponent(*handleJoystickYLeft, (float)JoystickYLeft, 0);
+		vr::VRDriverInput()->UpdateScalarComponent(*handleJoystickXLeft, (float)JoystickXLeft, 0);
 	}
 	
-	if (handleTriggerRight != nullptr && handleGripRight != nullptr)
+	if (handleTriggerRight != nullptr && handleGripRight != nullptr && handleJoystickXRight != nullptr && handleJoystickYRight != nullptr)
 	{	
 		if (triggerRight)
 		{
@@ -377,6 +552,9 @@ void ServerTrackedDeviceProvider::RunFrame()
 		{
 			vr::VRDriverInput()->UpdateScalarComponent(*handleGripRight, (float)0.0, 0);
 		}
+
+		vr::VRDriverInput()->UpdateScalarComponent(*handleJoystickYRight, (float)JoystickYRight, 0);
+		vr::VRDriverInput()->UpdateScalarComponent(*handleJoystickXRight, (float)JoystickXRight, 0);
 	}
 }
 
@@ -537,6 +715,16 @@ void ServerTrackedDeviceProvider::HandleCreateScalarComponent(vr::PropertyContai
 			TRACE("ServerTrackedDeviceProvider::handleTriggerLeft assigned");
 			handleTriggerLeft = pHandle;
 		}
+		else if (componentName == "/input/joystick/x")
+		{
+			TRACE("ServerTrackedDeviceProvider::handleJoystickXLeft assigned");
+			handleJoystickXLeft = pHandle;
+		}
+		else if (componentName == "/input/joystick/y")
+		{
+			TRACE("ServerTrackedDeviceProvider::handleJoystickYLeft assigned");
+			handleJoystickYLeft = pHandle;
+		}
 	}
 	else if (role == vr::ETrackedControllerRole::TrackedControllerRole_RightHand)
 	{
@@ -550,6 +738,16 @@ void ServerTrackedDeviceProvider::HandleCreateScalarComponent(vr::PropertyContai
 		{
 			TRACE("ServerTrackedDeviceProvider::handleTriggerRight assigned");
 			handleTriggerRight = pHandle;
+		}
+		else if (componentName == "/input/joystick/x")
+		{
+			TRACE("ServerTrackedDeviceProvider::handleJoystickXLeft assigned");
+			handleJoystickXRight = pHandle;
+		}
+		else if (componentName == "/input/joystick/y")
+		{
+			TRACE("ServerTrackedDeviceProvider::handleJoystickYLeft assigned");
+			handleJoystickYRight = pHandle;
 		}
 	}
 }
